@@ -2539,29 +2539,29 @@
     },
     "anomaly_type": "\u043d\u043e\u0440\u043c\u0430",
     "shape_error_zones": {
-      "brow_right": {
-        "fan": 3.811,
-        "ddfa": 3.811
+      "mouth": {
+        "fan": 4.88,
+        "ddfa": 4.88
       },
       "eye": {
         "fan": 5.012,
         "ddfa": 5.012
       },
-      "jaw": {
-        "fan": 9.854,
-        "ddfa": 9.854
-      },
       "nose": {
         "fan": 3.134,
         "ddfa": 3.134
+      },
+      "brow_right": {
+        "fan": 3.811,
+        "ddfa": 3.811
       },
       "brow_left": {
         "fan": 4.502,
         "ddfa": 4.502
       },
-      "mouth": {
-        "fan": 4.88,
-        "ddfa": 4.88
+      "jaw": {
+        "fan": 9.854,
+        "ddfa": 9.854
       }
     }
   }
