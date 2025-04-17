@@ -64,13 +64,18 @@ def matrix2angle(R):
 
 
 def calc_pose(param):
+    print(f"Input param: {param}")
+    param = np.array(param)  # Преобразование списка в numpy array
     P = param[:12].reshape(3, -1)  # camera matrix
     s, R, t3d = P2sRt(P)
     P = np.concatenate((R, t3d.reshape(3, -1)), axis=1)  # without scale
     pose = matrix2angle(R)
     pose = [p * 180 / np.pi for p in pose]
 
-    return P, pose
+    yaw, pitch, roll = pose
+    result = (yaw, pitch, roll)  # убедитесь, что все три значения вычисляются
+    print(f"Calculated pose values: {result}")
+    return result
 
 
 def build_camera_box(rear_size=90):
@@ -126,10 +131,12 @@ def plot_pose_box(img, P, ver, color=(40, 255, 0), line_width=2):
 
 def viz_pose(img, param_lst, ver_lst, show_flag=False, wfp=None):
     for param, ver in zip(param_lst, ver_lst):
-        P, pose = calc_pose(param)
+        yaw, pitch, roll = calc_pose(param)
+        P = param[:12].reshape(3, -1)  # camera matrix
+        s, R, t3d = P2sRt(P)
+        P = np.concatenate((R, t3d.reshape(3, -1)), axis=1)  # without scale
         img = plot_pose_box(img, P, ver)
-        # print(P[:, :3])
-        print(f'yaw: {pose[0]:.1f}, pitch: {pose[1]:.1f}, roll: {pose[2]:.1f}')
+        print(f'yaw: {yaw:.1f}, pitch: {pitch:.1f}, roll: {roll:.1f}')
 
     if wfp is not None:
         cv2.imwrite(wfp, img)

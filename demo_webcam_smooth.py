@@ -93,12 +93,15 @@ def main(args):
         if len(queue_ver) >= n:
             ver_ave = np.mean(queue_ver, axis=0)
 
+            # Создаем черный фон
+            black_bg = np.zeros_like(queue_frame[n_pre])
+
             if args.opt == '2d_sparse':
-                img_draw = cv_draw_landmark(queue_frame[n_pre], ver_ave)  # since we use padding
+                img_draw = cv_draw_landmark(black_bg, ver_ave)
             elif args.opt == '2d_dense':
-                img_draw = cv_draw_landmark(queue_frame[n_pre], ver_ave, size=1)
+                img_draw = cv_draw_landmark(black_bg, ver_ave, size=1)
             elif args.opt == '3d':
-                img_draw = render(queue_frame[n_pre], [ver_ave], tddfa.tri, alpha=0.7)
+                img_draw = render(black_bg, [ver_ave], tddfa.tri, alpha=1.0)  # alpha=1.0 для полной непрозрачности
             else:
                 raise ValueError(f'Unknown opt {args.opt}')
 
@@ -122,3 +125,4 @@ if __name__ == '__main__':
 
     args = parser.parse_args()
     main(args)
+

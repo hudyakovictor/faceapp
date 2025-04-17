@@ -123,7 +123,7 @@ def draw_landmarks(img, pts, style='fancy', wfp=None, show_flag=False, **kwargs)
         pts = [pts]
     for i in range(len(pts)):
         if dense_flag:
-            plt.plot(pts[i][0, ::6], pts[i][1, ::6], 'o', markersize=0.4, color='c', alpha=0.7)
+            plt.plot(pts[i][0, ::6], pts[i][1, ::6], 'o', markersize=0.9, color='r', alpha=0.9)
         else:
             alpha = 0.8
             markersize = 4
