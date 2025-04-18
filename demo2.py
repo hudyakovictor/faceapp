@@ -15,7 +15,7 @@ import functools
 import numpy
 from core import compute_anomaly_score_v2
 from analysis import run_anomaly_analysis_and_append
-from texture_analyzer import TextureAnalyzer
+from texture_analyzer import analyze_texture
 
 
 import sys
@@ -131,6 +131,49 @@ def load_image(img_path):
     if img is None:
         raise FileNotFoundError(f"Не удалось загрузить изображение: {img_path}")
     return img
+
+
+
+
+
+
+
+
+
+def detect_face_opencv(image):
+    """
+    Детектирует лицо на изображении с помощью OpenCV.
+    Возвращает координаты ROI для лица.
+    """
+    gray = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
+    face_cascade = cv2.CascadeClassifier(
+        cv2.data.haarcascades + 'haarcascade_frontalface_default.xml'
+    )
+    faces = face_cascade.detectMultiScale(gray, scaleFactor=1.1, minNeighbors=5)
+    if len(faces) == 0:
+        raise ValueError("Лицо не найдено")
+    x, y, w, h = max(faces, key=lambda rect: rect[2]*rect[3])
+    return [x, y, x + w, y + h]
+
+def analyze_face_texture_opencv(image_path):
+    """
+    Загружает изображение, определяет лицо через OpenCV,
+    строит ROI и анализирует текстуру по области лица.
+    Возвращает словарь с результатами анализа текстуры.
+    """
+    image = cv2.imread(image_path)
+    if image is None:
+        raise FileNotFoundError(f"Не удалось загрузить изображение: {image_path}")
+    roi = detect_face_opencv(image)
+    result = analyze_texture(image, roi)
+    return result
+
+
+
+
+
+
+
 
 
 
@@ -1138,6 +1181,12 @@ def main(args):
                     landmarks_data['anomaly'] = 1.0
                     landmarks_data['anomaly_details'] = {"error": str(e)}
             
+            
+            
+            
+            
+            
+            
             # Анализ текстуры с помощью scikit-image
             try:
                 logger.debug(f"{LogEmoji.PROCESSING} Анализ текстуры кожи с помощью scikit-image")
@@ -1146,129 +1195,18 @@ def main(args):
                 from skimage import color, feature, filters, measure, segmentation, util
                 from skimage.feature import local_binary_pattern, graycomatrix, graycoprops
                 
-                # Преобразуем изображение в оттенки серого
-                gray_image = color.rgb2gray(input_img_rgb)
-                
-                # Создаем маску для области лица
-                face_mask = numpy.zeros_like(gray_image, dtype=bool)
-                if landmarks_data.get('3ddfa'):
-                    pts = numpy.array(landmarks_data['3ddfa'][0])
-                    hull = cv2.convexHull(pts.reshape(-1, 1, 2).astype(numpy.int32))
-                    cv2.fillConvexPoly(face_mask.astype(numpy.uint8), hull, 1)
-                
-                # Анализ глянцевости (отражения света)
-                thresh = filters.threshold_otsu(gray_image)
-                binary = gray_image > (thresh * 1.5)  # Увеличиваем порог для выделения ярких областей
-                gloss_ratio = numpy.sum(binary & face_mask) / numpy.sum(face_mask) if numpy.sum(face_mask) > 0 else 0
-                
-                # Определяем максимальные значения яркости
-                max_brightness = numpy.max(gray_image[face_mask]) if numpy.sum(face_mask) > 0 else 0
-                
-                # Вычисляем контраст между яркими и обычными областями
-                if numpy.sum(binary & face_mask) > 0 and numpy.sum(face_mask & ~binary) > 0:
-                    bright_mean = numpy.mean(gray_image[binary & face_mask])
-                    normal_mean = numpy.mean(gray_image[face_mask & ~binary])
-                    brightness_contrast = bright_mean / normal_mean if normal_mean > 0 else 0
-                else:
-                    brightness_contrast = 0
-                
-                # Анализ пор на коже
-                gabor_real, gabor_imag = filters.gabor(gray_image, frequency=0.6)
-                blobs = feature.blob_dog(gabor_real * face_mask, min_sigma=1, max_sigma=3, threshold=0.01)
-                
-                # Вычисляем плотность пор
-                pore_density = len(blobs) / numpy.sum(face_mask) if numpy.sum(face_mask) > 0 else 0
-                
-                # Вычисляем средний размер пор
-                avg_pore_size = numpy.mean(blobs[:, 2]) if len(blobs) > 0 else 0
-                
-                # Анализ цвета кожи
-                hsv_image = color.rgb2hsv(input_img_rgb)
-                
-                # Извлекаем средние значения H, S, V для области кожи
-                if numpy.sum(face_mask) > 0:
-                    h_mean = numpy.mean(hsv_image[:, :, 0][face_mask])
-                    s_mean = numpy.mean(hsv_image[:, :, 1][face_mask])
-                    v_mean = numpy.mean(hsv_image[:, :, 2][face_mask])
-                else:
-                    h_mean, s_mean, v_mean = 0, 0, 0
-                
-                # Определяем, является ли цвет кожи аномальным
-                is_abnormal = (h_mean < 0.05 or h_mean > 0.1 or 
-                              s_mean < 0.2 or s_mean > 0.6 or 
-                              v_mean < 0.3 or v_mean > 0.9)
-                
-                # Вычисляем GLCM (матрицу совместной встречаемости уровней серого)
-                if numpy.sum(face_mask) > 0:
-                    masked_gray = gray_image * face_mask
-                    glcm = graycomatrix(
-                        (masked_gray * 255).astype(numpy.uint8), 
-                        distances=[1, 3, 5], 
-                        angles=[0, numpy.pi/4, numpy.pi/2, 3*numpy.pi/4], 
-                        levels=256, 
-                        symmetric=True, 
-                        normed=True
-                    )
-                    
-                    # Извлекаем признаки из GLCM
-                    contrast = graycoprops(glcm, 'contrast').mean()
-                    dissimilarity = graycoprops(glcm, 'dissimilarity').mean()
-                    homogeneity = graycoprops(glcm, 'homogeneity').mean()
-                    energy = graycoprops(glcm, 'energy').mean()
-                    correlation = graycoprops(glcm, 'correlation').mean()
-                else:
-                    contrast = dissimilarity = homogeneity = energy = correlation = 0
-                
-                # Вычисляем локальные бинарные шаблоны (LBP)
-                lbp = local_binary_pattern(gray_image, P=8, R=1, method='uniform')
-                lbp_hist, _ = numpy.histogram(lbp[face_mask] if numpy.sum(face_mask) > 0 else lbp, bins=10, density=True)
-                
-                # Вычисляем статистические характеристики
-                if numpy.sum(face_mask) > 0:
-                    mean = numpy.mean(gray_image[face_mask])
-                    std = numpy.std(gray_image[face_mask])
-                    entropy = measure.shannon_entropy(gray_image[face_mask])
-                else:
-                    mean = std = entropy = 0
-                
-                # Формируем результаты анализа текстуры
-                texture_data = {
-                    "gloss": {
-                        "gloss_ratio": float(gloss_ratio),
-                        "max_brightness": float(max_brightness),
-                        "brightness_contrast": float(brightness_contrast),
-                        "is_glossy": gloss_ratio > 0.05  # Пороговое значение для определения глянцевости
-                    },
-                    "pores": {
-                        "pore_count": int(len(blobs)),
-                        "pore_density": float(pore_density),
-                        "avg_pore_size": float(avg_pore_size),
-                        "has_pores": len(blobs) > 100  # Пороговое значение для определения наличия пор
-                    },
-                    "color": {
-                        "hsv": {
-                            "h_mean": float(h_mean),
-                            "s_mean": float(s_mean),
-                            "v_mean": float(v_mean)
-                        },
-                        "is_abnormal": bool(is_abnormal)
-                    },
-                    "texture": {
-                        "glcm": {
-                            "contrast": float(contrast),
-                            "dissimilarity": float(dissimilarity),
-                            "homogeneity": float(homogeneity),
-                            "energy": float(energy),
-                            "correlation": float(correlation)
-                        },
-                        "lbp_histogram": lbp_hist.tolist(),
-                        "statistics": {
-                            "mean": float(mean),
-                            "std": float(std),
-                            "entropy": float(entropy)
-                        }
-                    }
-                }
+                try:
+                    # Детектируем лицо через OpenCV
+                    x, y, w, h = detect_face_opencv(img)
+                    roi = [x, y, x + w, y + h]
+                    # Анализируем текстуру по найденному ROI
+                    texture_data = analyze_texture(img, roi)
+                except Exception as e:
+                    logger.error(f"Ошибка анализа текстуры: {e}")
+                    texture_data = None
+
+                # Добавляем texture_data в landmarks_data или итоговый JSON
+                landmarks_data['texture'] = texture_data
                 
                 # Добавляем данные о текстуре в JSON
                 landmarks_data['texture'] = texture_data

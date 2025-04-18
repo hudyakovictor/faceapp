@@ -2508,7 +2508,7 @@
     "pitch": 12.028602040531403,
     "roll": -2.636327346849077
   },
-  "anomaly": 2.4335,
+  "anomaly": 1.9335,
   "anomaly_details": {
     "A_face": 5.672,
     "A_geom": 0.171,
@@ -2539,78 +2539,78 @@
     },
     "anomaly_type": "\u043d\u043e\u0440\u043c\u0430",
     "shape_error_zones": {
-      "brow_left": {
-        "fan": 4.502,
-        "ddfa": 4.502
-      },
-      "eye": {
-        "fan": 5.012,
-        "ddfa": 5.012
-      },
       "jaw": {
         "fan": 9.854,
         "ddfa": 9.854
+      },
+      "brow_left": {
+        "fan": 4.502,
+        "ddfa": 4.502
       },
       "mouth": {
         "fan": 4.88,
         "ddfa": 4.88
       },
-      "brow_right": {
-        "fan": 3.811,
-        "ddfa": 3.811
-      },
       "nose": {
         "fan": 3.134,
         "ddfa": 3.134
+      },
+      "eye": {
+        "fan": 5.012,
+        "ddfa": 5.012
+      },
+      "brow_right": {
+        "fan": 3.811,
+        "ddfa": 3.811
       }
     },
-    "texture_anomaly": 2.0
+    "texture_anomaly": 1.0
   },
   "texture": {
     "gloss": {
-      "gloss_ratio": 0.0,
-      "max_brightness": 0.0,
-      "brightness_contrast": 0.0,
-      "is_glossy": false
+      "gloss_ratio": 0.3778,
+      "max_brightness": 255.0,
+      "brightness_contrast": 163.97253362656016,
+      "is_glossy": true
     },
     "pores": {
-      "pore_count": 0,
-      "pore_density": 0.0,
-      "avg_pore_size": 0.0,
-      "has_pores": false
+      "pore_count": 48,
+      "pore_density": 8.15114948189256e-05,
+      "avg_pore_size": 11787.583333333334,
+      "has_pores": true
     },
     "color": {
       "hsv": {
-        "h_mean": 0.0,
-        "s_mean": 0.0,
-        "v_mean": 0.0
+        "h_mean": 118.3456511919358,
+        "s_mean": 90.4142906631979,
+        "v_mean": 152.20198208784902
       },
-      "is_abnormal": true
+      "is_abnormal": false
     },
     "texture": {
       "glcm": {
-        "contrast": 0.0,
-        "dissimilarity": 0.0,
-        "homogeneity": 0.0,
-        "energy": 0.0,
-        "correlation": 0.0
+        "contrast": 17.201559559559556,
+        "dissimilarity": 1.2447107107107107,
+        "homogeneity": 0.7291198403692195,
+        "energy": 0.4106692743169168,
+        "correlation": 0.998827978843189
       },
       "lbp_histogram": [
-        0.016745555555555555,
-        0.039954444444444445,
-        0.02605222222222222,
-        0.11257000000000002,
-        0.13401555555555555,
-        0.22660888888888878,
-        0.06637333333333337,
-        0.06620666666666664,
-        0.34060333333333354,
-        0.08198111111111107
+        0.008688,
+        0.024425,
+        0.015861,
+        0.066173,
+        0.094614,
+        0.119363,
+        0.043963,
+        0.037632,
+        0.553605,
+        0.035676
       ],
       "statistics": {
-        "mean": 0.0,
-        "std": 0.0,
-        "entropy": 0.0
+        "mean": 77.363108,
+        "std": 85.65669531671377,
+        "entropy": 5.432336710666761
       }
     }
   }
