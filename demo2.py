@@ -1156,7 +1156,6 @@ def main(args):
                         anomaly = compute_anomaly_score_v2(
                             fan_pts=pts_fan,
                             ddfa_pts=pts_3ddfa,
-                            mp_pts=pts_fan, # Используем FAN точки вместо MediaPipe
                             yaw=yaw,
                             pitch=pitch,
                             roll=roll,

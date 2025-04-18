@@ -1,16 +1,13 @@
-import numpy # В начале файла
-
+import numpy
 
 def calculate_confidence_by_pose(metric_name, yaw, pitch, roll):
     """
     Расчет confidence для метрик на основе углов поворота головы
-    
     Args:
         metric_name (str): Название метрики
         yaw (float): Угол поворота головы по оси Y (влево-вправо)
         pitch (float): Угол поворота головы по оси X (вверх-вниз)
         roll (float): Угол поворота головы по оси Z (наклон)
-        
     Returns:
         float: Значение confidence от 0.0 до 1.0
     """
@@ -54,11 +51,6 @@ def calculate_confidence_by_pose(metric_name, yaw, pitch, roll):
         "fn_left_eye_openness": {"yaw": (-25, 5), "pitch": (-15, 15), "roll": (-15, 15)},
         "fn_right_eye_openness": {"yaw": (-5, 25), "pitch": (-15, 15), "roll": (-15, 15)},
         "fn_eye_symmetry_score": {"yaw": (-15, 15), "pitch": (-15, 15), "roll": (-10, 10)},
-        
-        # MediaPipe метрики (добавляем префикс MP_)
-        "MP_eye_distance": {"yaw": (-25, 25), "pitch": (-20, 20), "roll": (-15, 15)},
-        "MP_face_width": {"yaw": (-20, 20), "pitch": (-25, 25), "roll": (-15, 15)},
-        "MP_brow_height": {"yaw": (-20, 20), "pitch": (-15, 15), "roll": (-10, 10)},
     }
     
     # Стандартный диапазон, если метрика не найдена в словаре
@@ -87,53 +79,31 @@ def calculate_confidence_by_pose(metric_name, yaw, pitch, roll):
     
     return final_confidence
 
-
-
-
-
-
-
-
 def filter_metrics_by_confidence(metrics, confidence_values, threshold=0.5):
     """
     Фильтрация метрик по порогу confidence
-    
     Args:
         metrics (dict): Словарь с метриками {имя_метрики: значение}
         confidence_values (dict): Словарь с confidence {имя_метрики: confidence}
         threshold (float): Пороговое значение confidence (0.0-1.0)
-        
     Returns:
         dict: Отфильтрованные метрики с их confidence
     """
     filtered_metrics = {}
-    
     for metric_name, value in metrics.items():
         confidence = confidence_values.get(metric_name, 0.0)
-        
         if confidence >= threshold:
             filtered_metrics[metric_name] = {
                 "value": value,
                 "confidence": confidence
             }
-    
     return filtered_metrics
 
-
-
-
-
-
-
-
-
-def compute_anomaly_score_v2(fan_pts, ddfa_pts, mp_pts=None,
-                           yaw=0.0, pitch=0.0, roll=0.0,
-                           shape_error_ddfa=0.1,
-                           face_center=(120, 110), scale=1.0,
-                           zone_map=None, w_L=None,
-                           depth_data=None, normal_data=None,
-                           use_mediapipe=False):
+def compute_anomaly_score_v2(fan_pts, ddfa_pts, 
+                            yaw=0.0, pitch=0.0, roll=0.0,
+                            shape_error_ddfa=0.1,
+                            face_center=(120, 110), scale=1.0,
+                            zone_map=None, w_L=None):
     """
     Расчёт продвинутой метрики аномальности A_face с учётом:
     - shape_error (3DDFA + FAN)
@@ -145,34 +115,21 @@ def compute_anomaly_score_v2(fan_pts, ddfa_pts, mp_pts=None,
     Args:
         fan_pts: координаты 68 точек от FAN
         ddfa_pts: координаты 68 точек от 3DDFA
-        mp_pts: координаты от MediaPipe (468 точек, преобразуемые в 68) или None
         yaw, pitch, roll: углы поворота головы
         shape_error_ddfa: ошибка формы от 3DDFA
         face_center: центр лица
         scale: масштаб лица
         zone_map: словарь маппинга точек по зонам лица
         w_L: веса для каждой библиотеки
-        depth_data: данные о глубине (опционально)
-        normal_data: данные о нормалях (опционально)
-        use_mediapipe: если False, MediaPipe не используется для расчета аномалий
         
     Возвращает словарь с финальной метрикой и деталями
     """
     n_points = len(fan_pts)
     assert len(ddfa_pts) == n_points, "Количество точек должно совпадать"
     
-    # Если MediaPipe не используется для расчета аномалий, используем точки FAN
-    if not use_mediapipe or mp_pts is None:
-        mp_pts = fan_pts.copy()
-    else:
-        assert len(mp_pts) == n_points or len(mp_pts) == 468, "Количество точек MediaPipe должно быть 68 или 468"
-        if len(mp_pts) == 468:
-            mp_pts = convert_mediapipe_to_68(mp_pts)
-    
     # Приведение к numpy и проверка размерности
     fan_pts = numpy.array(fan_pts)[:, :2]  # Берем только x, y
     ddfa_pts = numpy.array(ddfa_pts)[:, :2]
-    mp_pts = numpy.array(mp_pts)[:, :2]
     
     EPSILON = 1e-6
     scale = max(scale, EPSILON)
@@ -180,12 +137,10 @@ def compute_anomaly_score_v2(fan_pts, ddfa_pts, mp_pts=None,
     # Нормализация по масштабу
     fan_pts = fan_pts / scale
     ddfa_pts = ddfa_pts / scale
-    mp_pts = mp_pts / scale
     
     # ------------------- SHAPE ERROR -------------------
-    mean_pts = (fan_pts + ddfa_pts) / 2  # Исключаем MediaPipe из расчета среднего
+    mean_pts = (fan_pts + ddfa_pts) / 2  # Среднее между FAN и 3DDFA
     fan_shape_error = numpy.mean(numpy.linalg.norm(fan_pts - mean_pts, axis=1))
-    mp_shape_error = numpy.mean(numpy.linalg.norm(mp_pts - mean_pts, axis=1))
     
     # ------------------- СИММЕТРИЯ -------------------
     def get_mirrored_pairs(n_points):
@@ -193,8 +148,6 @@ def compute_anomaly_score_v2(fan_pts, ddfa_pts, mp_pts=None,
             return [(36, 45), (37, 44), (38, 43), (39, 42), (40, 47), (41, 46),
                     (17, 26), (18, 25), (19, 24), (20, 23), (21, 22),
                     (31, 35), (32, 34), (48, 54), (49, 53), (50, 52)]
-        elif n_points == 468:
-            return [(33, 263), (160, 159), (158, 153), (144, 398), (153, 390)]
         else:
             return []
     
@@ -209,46 +162,7 @@ def compute_anomaly_score_v2(fan_pts, ddfa_pts, mp_pts=None,
     
     sym_fan = symmetry_error(fan_pts)
     sym_ddfa = symmetry_error(ddfa_pts)
-    sym_mp = symmetry_error(mp_pts) if use_mediapipe else sym_fan
-    
-    sym_boost = 1 + (sym_fan + sym_ddfa + (sym_mp if use_mediapipe else 0)) / (3 if use_mediapipe else 2)
-    
-    # ------------------- ГЛУБИНА (DEPTH BOOST) -------------------
-    depth_boost = 1.0
-    if depth_data and isinstance(depth_data, dict):
-        depth_values = numpy.array([depth_data.get(str(i), 0.0) for i in range(n_points)])
-        if numpy.any(depth_values > 0):
-            depth_mean = numpy.mean(depth_values[depth_values > 0]) + 1e-6
-            depth_std = numpy.std(depth_values[depth_values > 0])
-            depth_symmetry = numpy.mean([
-                abs(depth_values[i] - depth_values[j])
-                for i, j in mirrored_pairs if i < len(depth_values) and j < len(depth_values)
-                and depth_values[i] > 0 and depth_values[j] > 0
-            ]) if len(mirrored_pairs) > 0 else 0
-            depth_boost = 1 + 1 / (1 + numpy.exp(-depth_std / depth_mean)) + depth_symmetry / 100
-        else:
-            # Если все значения глубины равны 0, используем значение по умолчанию
-            depth_boost = 1.5
-    
-    # ------------------- НОРМАЛИ (NORMAL BOOST) -------------------
-    normal_boost = 1.0
-    if normal_data and isinstance(normal_data, dict):
-        angles = []
-        for i in range(n_points):
-            n = normal_data.get(str(i))
-            if n:
-                nx, ny, nz = n
-                length = numpy.linalg.norm([nx, ny, nz])
-                if length > 0:
-                    angle = numpy.arccos(numpy.clip(nz / length, -1.0, 1.0))  # угол между нормалью и осью Z
-                    angles.append(numpy.degrees(angle))
-        
-        if angles:
-            avg_angle = numpy.mean(angles)
-            std_angle = numpy.std(angles)
-            normal_boost = 1 + std_angle / 90 + abs(avg_angle - 90) / 180
-        else:
-            normal_boost = 1.5
+    sym_boost = 1 + (sym_fan + sym_ddfa) / 2
     
     # ------------------- SHAPE ERROR ПО ЗОНАМ -------------------
     shape_error_zones = {}
@@ -274,21 +188,13 @@ def compute_anomaly_score_v2(fan_pts, ddfa_pts, mp_pts=None,
         indices = [i for i, zz in zone_map.items() if zz == z]
         err_fan = numpy.mean(numpy.linalg.norm(fan_pts[indices] - mean_pts[indices], axis=1))
         err_ddfa = numpy.mean(numpy.linalg.norm(ddfa_pts[indices] - mean_pts[indices], axis=1))
-        
         shape_error_zones[z] = {
             'fan': round(err_fan, 3),
             'ddfa': round(err_ddfa, 3)
         }
-        
-        if use_mediapipe:
-            err_mp = numpy.mean(numpy.linalg.norm(mp_pts[indices] - mean_pts[indices], axis=1))
-            shape_error_zones[z]['mp'] = round(err_mp, 3)
     
-    # Расчет shape_boost в зависимости от использования MediaPipe
-    if use_mediapipe:
-        shape_boost = 1 + (shape_error_ddfa + fan_shape_error / (fan_shape_error + 1e-3) + mp_shape_error / (mp_shape_error + 1e-3)) / 3
-    else:
-        shape_boost = 1 + (shape_error_ddfa + fan_shape_error / (fan_shape_error + 1e-3)) / 2
+    # Расчет shape_boost
+    shape_boost = 1 + (shape_error_ddfa + fan_shape_error / (fan_shape_error + 1e-3)) / 2
     
     # ------------------- ПОЗА -------------------
     pose_boost = 1.0
@@ -304,12 +210,7 @@ def compute_anomaly_score_v2(fan_pts, ddfa_pts, mp_pts=None,
     
     center_dev_fan = center_deviation(fan_pts)
     center_dev_ddfa = center_deviation(ddfa_pts)
-    center_dev_mp = center_deviation(mp_pts) if use_mediapipe else center_dev_fan
-    
-    if use_mediapipe:
-        center_boost = 1 + (center_dev_fan + center_dev_ddfa + center_dev_mp) / 300
-    else:
-        center_boost = 1 + (center_dev_fan + center_dev_ddfa) / 200
+    center_boost = 1 + (center_dev_fan + center_dev_ddfa) / 200
     
     # ------------------- SCALE -------------------
     scale_boost = 1 + abs(1.0 - scale)
@@ -323,27 +224,16 @@ def compute_anomaly_score_v2(fan_pts, ddfa_pts, mp_pts=None,
     
     # ------------------- БИБЛИОТЕЧНЫЕ ВЕСА -------------------
     if w_L is None:
-        if use_mediapipe:
-            w_L = {'fan': 1.0, 'ddfa': 1.0, 'mp': 0.9}
-        else:
-            w_L = {'fan': 1.0, 'ddfa': 1.0}
+        w_L = {'fan': 1.0, 'ddfa': 1.0}
     
     # ------------------- ГЕОМЕТРИЯ (A_geom базовая) -------------------
-    if use_mediapipe:
-        A_geom = numpy.mean([
-            w_L['fan'] * numpy.linalg.norm(fan_pts[i] - ddfa_pts[i]) +
-            w_L['mp'] * numpy.linalg.norm(fan_pts[i] - mp_pts[i]) +
-            w_L['ddfa'] * numpy.linalg.norm(ddfa_pts[i] - mp_pts[i])
-            for i in range(n_points)
-        ]) / n_points
-    else:
-        A_geom = numpy.mean([
-            w_L['fan'] * numpy.linalg.norm(fan_pts[i] - ddfa_pts[i])
-            for i in range(n_points)
-        ]) / n_points
+    A_geom = numpy.mean([
+        w_L['fan'] * numpy.linalg.norm(fan_pts[i] - ddfa_pts[i])
+        for i in range(n_points)
+    ]) / n_points
     
     # ------------------- Финальный расчёт -------------------
-    A_face = A_geom * shape_boost * sym_boost * pose_boost * center_boost * scale_boost * prop_boost * depth_boost * normal_boost
+    A_face = A_geom * shape_boost * sym_boost * pose_boost * center_boost * scale_boost * prop_boost
     
     # Проверка на NaN и бесконечность
     if numpy.isnan(A_face) or numpy.isinf(A_face):
@@ -368,17 +258,9 @@ def compute_anomaly_score_v2(fan_pts, ddfa_pts, mp_pts=None,
         'scale_boost': round(scale_boost, 3),
         'prop_boost': round(prop_boost, 3),
         'prop_ratio': round(prop_ratio, 3),
-        'depth_boost': round(depth_boost, 3),
-        'normal_boost': round(normal_boost, 3),
         'A_z': {},
         'anomaly_type': None
     }
-    
-    # Добавляем метрики MediaPipe только если они используются
-    if use_mediapipe:
-        results['mp_shape_error'] = round(mp_shape_error, 3)
-        results['symmetry_mp'] = round(sym_mp, 3)
-        results['center_dev_mp'] = round(center_dev_mp, 2)
     
     # ------------------- ЗОНИРОВАННЫЙ АНАЛИЗ -------------------
     zones = sorted(set(zone_map.values()))
@@ -386,14 +268,8 @@ def compute_anomaly_score_v2(fan_pts, ddfa_pts, mp_pts=None,
     
     for i in range(n_points):
         z = zone_map.get(i, 'other')
-        if use_mediapipe:
-            d1 = numpy.linalg.norm(fan_pts[i] - ddfa_pts[i])
-            d2 = numpy.linalg.norm(fan_pts[i] - mp_pts[i])
-            d3 = numpy.linalg.norm(ddfa_pts[i] - mp_pts[i])
-            zone_deltas[z].append((d1 + d2 + d3) / 3)
-        else:
-            d1 = numpy.linalg.norm(fan_pts[i] - ddfa_pts[i])
-            zone_deltas[z].append(d1)
+        d1 = numpy.linalg.norm(fan_pts[i] - ddfa_pts[i])
+        zone_deltas[z].append(d1)
     
     for z in zones:
         raw = numpy.mean(zone_deltas[z])
@@ -406,7 +282,6 @@ def compute_anomaly_score_v2(fan_pts, ddfa_pts, mp_pts=None,
             B_z = 0.5
         else:
             B_z = 0.3
-        
         results['A_z'][z] = round(raw * B_z, 2)
     
     # ------------------- КЛАССИФИКАЦИЯ ТИПА АНОМАЛИИ -------------------
@@ -429,53 +304,43 @@ def compute_anomaly_score_v2(fan_pts, ddfa_pts, mp_pts=None,
     
     return results
 
-
-def universal_anomaly_detection(fan_pts, ddfa_pts, mediapipe_pts, weights, confidence, zone_map, bias, angle_factors):
+def universal_anomaly_detection(fan_pts, ddfa_pts, weights, confidence, zone_map, bias, angle_factors):
     total_weight = 0
     total_score = 0
     library_distances = {}
     zone_distances = {zone: [] for zone in set(zone_map.values())}
-
-    for i in range(min(len(fan_pts), len(ddfa_pts), len(mediapipe_pts))):
+    
+    for i in range(min(len(fan_pts), len(ddfa_pts))):
         zone = zone_map.get(i, 'other')
         zone_weight = weights.get(zone, 1.0)
         point_confidence = confidence.get(i, 1.0)
         zone_bias = bias.get(zone, 1.0)
         angle_correction = angle_factors.get(zone, 1.0)
-
+        
         dist_fan_ddfa = numpy.linalg.norm(fan_pts[i] - ddfa_pts[i])
-        dist_fan_mediapipe = numpy.linalg.norm(fan_pts[i] - mediapipe_pts[i])
-        dist_ddfa_mediapipe = numpy.linalg.norm(ddfa_pts[i] - mediapipe_pts[i])
-
-        library_distances[i] = (dist_fan_ddfa, dist_fan_mediapipe, dist_ddfa_mediapipe)
-        zone_distances[zone].append((dist_fan_ddfa, dist_fan_mediapipe, dist_ddfa_mediapipe))
-
+        
+        library_distances[i] = dist_fan_ddfa
+        zone_distances[zone].append(dist_fan_ddfa)
+        
         bayesian_factor = 1.0
-        if (dist_fan_ddfa < 10 and dist_fan_mediapipe > 50 and dist_ddfa_mediapipe > 50):
-            bayesian_factor = 2.0
-        elif (dist_fan_mediapipe < 10 and dist_fan_ddfa > 50 and dist_ddfa_mediapipe > 50):
-            bayesian_factor = 2.0
-        elif (dist_ddfa_mediapipe < 10 and dist_fan_ddfa > 50 and dist_fan_mediapipe > 50):
-            bayesian_factor = 2.0
-        elif (dist_fan_ddfa > 30 and dist_fan_mediapipe > 30 and dist_ddfa_mediapipe > 30):
+        if dist_fan_ddfa > 30:
             bayesian_factor = 3.0
-
-        fractal_factor = 1.0 # зарезервировано
-        chain_factor = 1.0 # зарезервировано
-
-        adjusted_distance = (dist_fan_ddfa + dist_fan_mediapipe + dist_ddfa_mediapipe) / 3
-        adjusted_score = adjusted_distance * bayesian_factor * fractal_factor * chain_factor * zone_weight * point_confidence * zone_bias * angle_correction
-
+        
+        fractal_factor = 1.0  # зарезервировано
+        chain_factor = 1.0  # зарезервировано
+        
+        adjusted_score = dist_fan_ddfa * bayesian_factor * fractal_factor * chain_factor * zone_weight * point_confidence * zone_bias * angle_correction
+        
         total_score += adjusted_score
         total_weight += zone_weight * point_confidence
-
+    
     zone_anomalies = {}
     for zone, distances in zone_distances.items():
         if len(distances) > 0:
-            avg_distance = sum([sum(d)/3 for d in distances]) / len(distances)
-            variance = sum([(sum(d)/3 - avg_distance)**2 for d in distances]) / len(distances)
+            avg_distance = sum(distances) / len(distances)
+            variance = sum([(d - avg_distance)**2 for d in distances]) / len(distances)
             zone_anomalies[zone] = (avg_distance, variance)
-
+    
     return {
         'total_score': total_score / total_weight if total_weight else 0,
         'zone_anomalies': zone_anomalies,

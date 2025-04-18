@@ -1,4 +1,4 @@
-import numpy as np
+import numpy
 
 def filter_metrics_by_confidence(metrics, confidence_values, threshold=0.5):
     """
