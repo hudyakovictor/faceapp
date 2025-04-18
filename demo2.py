@@ -15,6 +15,8 @@ import functools
 import numpy
 from core import compute_anomaly_score_v2
 from analysis import run_anomaly_analysis_and_append
+from texture_analyzer import TextureAnalyzer
+
 
 import sys
 import argparse
@@ -936,11 +938,6 @@ def main(args):
         cfg = yaml.load(open(args.config), Loader=yaml.SafeLoader)
         logger.debug(f"{LogEmoji.PROCESSING} Загружена конфигурация из {args.config}")
         
-        
-      
- # ------------------------------------------------------------------------------------------------------------------------  
-        
-
         # Инициализация FaceBoxes и TDDFA
         if args.onnx:
             os.environ['KMP_DUPLICATE_LIB_OK'] = 'True'
@@ -961,11 +958,6 @@ def main(args):
         if img is None:
             raise FileNotFoundError(f"{LogEmoji.ERROR} Не удалось загрузить изображение: {args.img_fp} <br>")
         
-      
-      
-        
- # ------------------------------------------------------------------------------------------------------------------------ 
-        
         # Копируем оригинальное изображение в папку results
         original_name = os.path.basename(args.img_fp)
         original_path = os.path.join('examples/results', original_name)
@@ -982,11 +974,6 @@ def main(args):
             max_num_faces=1,
             refine_landmarks=False
         )
-        
-        
-# ------------------------------------------------------------------------------------------------------------------------       
-        
-        
         
         # Обнаружение лиц и получение параметров 3DMM и ROI
         boxes = face_boxes(img)
@@ -1037,10 +1024,6 @@ def main(args):
                 debug_img[..., :3] = numpy.maximum(debug_img[..., :3], mp_overlay)
                 alpha_mask = numpy.any(debug_img[..., :3] > 0, axis=-1)
                 debug_img[..., 3] = numpy.where(alpha_mask, 255, 0)
-       
-       
-       
- # ------------------------------------------------------------------------------------------------------------------------      
             
             # Получение FAN landmarks
             preds_fan = fa.get_landmarks(input_img_rgb)
@@ -1075,10 +1058,6 @@ def main(args):
             alpha_mask = numpy.any(debug_img[..., :3] > 0, axis=-1)
             debug_img[..., 3] = numpy.where(alpha_mask, 255, 0)
             
-            
-            
- # ------------------------------------------------------------------------------------------------------------------------           
-                
             # Сохранение landmarks в JSON
             landmarks_data = {
                 '3ddfa': [ver[:2].T.astype(int).tolist() for ver in ver_lst],
@@ -1109,10 +1088,6 @@ def main(args):
                         face_points.append([x, y])
                     landmarks_data['mediapipe'].append(face_points)
             
-                     
-            
-# ------------------------------------------------------------------------------------------------------------------------
-           
             run_anomaly_analysis_and_append(landmarks_data, img, ver_lst, tddfa.tri)
             
             # Подготовка точек для расчёта аномалии
@@ -1162,6 +1137,172 @@ def main(args):
                     log_exception(e, "Ошибка при расчете аномалии")
                     landmarks_data['anomaly'] = 1.0
                     landmarks_data['anomaly_details'] = {"error": str(e)}
+            
+            # Анализ текстуры с помощью scikit-image
+            try:
+                logger.debug(f"{LogEmoji.PROCESSING} Анализ текстуры кожи с помощью scikit-image")
+                
+                # Импортируем необходимые библиотеки scikit-image
+                from skimage import color, feature, filters, measure, segmentation, util
+                from skimage.feature import local_binary_pattern, graycomatrix, graycoprops
+                
+                # Преобразуем изображение в оттенки серого
+                gray_image = color.rgb2gray(input_img_rgb)
+                
+                # Создаем маску для области лица
+                face_mask = numpy.zeros_like(gray_image, dtype=bool)
+                if landmarks_data.get('3ddfa'):
+                    pts = numpy.array(landmarks_data['3ddfa'][0])
+                    hull = cv2.convexHull(pts.reshape(-1, 1, 2).astype(numpy.int32))
+                    cv2.fillConvexPoly(face_mask.astype(numpy.uint8), hull, 1)
+                
+                # Анализ глянцевости (отражения света)
+                thresh = filters.threshold_otsu(gray_image)
+                binary = gray_image > (thresh * 1.5)  # Увеличиваем порог для выделения ярких областей
+                gloss_ratio = numpy.sum(binary & face_mask) / numpy.sum(face_mask) if numpy.sum(face_mask) > 0 else 0
+                
+                # Определяем максимальные значения яркости
+                max_brightness = numpy.max(gray_image[face_mask]) if numpy.sum(face_mask) > 0 else 0
+                
+                # Вычисляем контраст между яркими и обычными областями
+                if numpy.sum(binary & face_mask) > 0 and numpy.sum(face_mask & ~binary) > 0:
+                    bright_mean = numpy.mean(gray_image[binary & face_mask])
+                    normal_mean = numpy.mean(gray_image[face_mask & ~binary])
+                    brightness_contrast = bright_mean / normal_mean if normal_mean > 0 else 0
+                else:
+                    brightness_contrast = 0
+                
+                # Анализ пор на коже
+                gabor_real, gabor_imag = filters.gabor(gray_image, frequency=0.6)
+                blobs = feature.blob_dog(gabor_real * face_mask, min_sigma=1, max_sigma=3, threshold=0.01)
+                
+                # Вычисляем плотность пор
+                pore_density = len(blobs) / numpy.sum(face_mask) if numpy.sum(face_mask) > 0 else 0
+                
+                # Вычисляем средний размер пор
+                avg_pore_size = numpy.mean(blobs[:, 2]) if len(blobs) > 0 else 0
+                
+                # Анализ цвета кожи
+                hsv_image = color.rgb2hsv(input_img_rgb)
+                
+                # Извлекаем средние значения H, S, V для области кожи
+                if numpy.sum(face_mask) > 0:
+                    h_mean = numpy.mean(hsv_image[:, :, 0][face_mask])
+                    s_mean = numpy.mean(hsv_image[:, :, 1][face_mask])
+                    v_mean = numpy.mean(hsv_image[:, :, 2][face_mask])
+                else:
+                    h_mean, s_mean, v_mean = 0, 0, 0
+                
+                # Определяем, является ли цвет кожи аномальным
+                is_abnormal = (h_mean < 0.05 or h_mean > 0.1 or 
+                              s_mean < 0.2 or s_mean > 0.6 or 
+                              v_mean < 0.3 or v_mean > 0.9)
+                
+                # Вычисляем GLCM (матрицу совместной встречаемости уровней серого)
+                if numpy.sum(face_mask) > 0:
+                    masked_gray = gray_image * face_mask
+                    glcm = graycomatrix(
+                        (masked_gray * 255).astype(numpy.uint8), 
+                        distances=[1, 3, 5], 
+                        angles=[0, numpy.pi/4, numpy.pi/2, 3*numpy.pi/4], 
+                        levels=256, 
+                        symmetric=True, 
+                        normed=True
+                    )
+                    
+                    # Извлекаем признаки из GLCM
+                    contrast = graycoprops(glcm, 'contrast').mean()
+                    dissimilarity = graycoprops(glcm, 'dissimilarity').mean()
+                    homogeneity = graycoprops(glcm, 'homogeneity').mean()
+                    energy = graycoprops(glcm, 'energy').mean()
+                    correlation = graycoprops(glcm, 'correlation').mean()
+                else:
+                    contrast = dissimilarity = homogeneity = energy = correlation = 0
+                
+                # Вычисляем локальные бинарные шаблоны (LBP)
+                lbp = local_binary_pattern(gray_image, P=8, R=1, method='uniform')
+                lbp_hist, _ = numpy.histogram(lbp[face_mask] if numpy.sum(face_mask) > 0 else lbp, bins=10, density=True)
+                
+                # Вычисляем статистические характеристики
+                if numpy.sum(face_mask) > 0:
+                    mean = numpy.mean(gray_image[face_mask])
+                    std = numpy.std(gray_image[face_mask])
+                    entropy = measure.shannon_entropy(gray_image[face_mask])
+                else:
+                    mean = std = entropy = 0
+                
+                # Формируем результаты анализа текстуры
+                texture_data = {
+                    "gloss": {
+                        "gloss_ratio": float(gloss_ratio),
+                        "max_brightness": float(max_brightness),
+                        "brightness_contrast": float(brightness_contrast),
+                        "is_glossy": gloss_ratio > 0.05  # Пороговое значение для определения глянцевости
+                    },
+                    "pores": {
+                        "pore_count": int(len(blobs)),
+                        "pore_density": float(pore_density),
+                        "avg_pore_size": float(avg_pore_size),
+                        "has_pores": len(blobs) > 100  # Пороговое значение для определения наличия пор
+                    },
+                    "color": {
+                        "hsv": {
+                            "h_mean": float(h_mean),
+                            "s_mean": float(s_mean),
+                            "v_mean": float(v_mean)
+                        },
+                        "is_abnormal": bool(is_abnormal)
+                    },
+                    "texture": {
+                        "glcm": {
+                            "contrast": float(contrast),
+                            "dissimilarity": float(dissimilarity),
+                            "homogeneity": float(homogeneity),
+                            "energy": float(energy),
+                            "correlation": float(correlation)
+                        },
+                        "lbp_histogram": lbp_hist.tolist(),
+                        "statistics": {
+                            "mean": float(mean),
+                            "std": float(std),
+                            "entropy": float(entropy)
+                        }
+                    }
+                }
+                
+                # Добавляем данные о текстуре в JSON
+                landmarks_data['texture'] = texture_data
+                
+                # Обновляем общую оценку аномалий
+                if 'anomaly' in landmarks_data and isinstance(landmarks_data['anomaly'], (int, float)):
+                    # Вычисляем оценку аномалий на основе данных о текстуре
+                    texture_anomaly = 0.0
+                    
+                    # Проверяем глянцевость
+                    if texture_data["gloss"]["is_glossy"]:
+                        texture_anomaly += 1.0
+                    
+                    # Проверяем наличие пор
+                    if not texture_data["pores"]["has_pores"]:
+                        texture_anomaly += 1.0
+                    
+                    # Проверяем аномальный цвет кожи
+                    if texture_data["color"]["is_abnormal"]:
+                        texture_anomaly += 1.0
+                    
+                    # Обновляем аномалии в деталях
+                    if 'anomaly_details' in landmarks_data:
+                        landmarks_data['anomaly_details']['texture_anomaly'] = texture_anomaly
+                    else:
+                        landmarks_data['anomaly_details'] = {"texture_anomaly": texture_anomaly}
+                    
+                    # Обновляем общую оценку аномалий
+                    landmarks_data['anomaly'] = (landmarks_data['anomaly'] + texture_anomaly) / 2
+                
+                logger.debug(f"{LogEmoji.METRICS} Анализ текстуры завершен")
+                
+            except Exception as e:
+                log_exception(e, "Ошибка при анализе текстуры с помощью scikit-image")
             
             json_name = os.path.splitext(os.path.basename(args.img_fp))[0] + '.json'
             json_path = os.path.join('examples/results', json_name)
@@ -1291,7 +1432,6 @@ def main(args):
         
     except Exception as e:
         log_exception(e, f"Критическая ошибка при обработке изображения {args.img_fp}")
-
 
 
 

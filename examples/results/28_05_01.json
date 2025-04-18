@@ -2508,7 +2508,7 @@
     "pitch": 33.18066334256434,
     "roll": -14.33809647271809
   },
-  "anomaly": 4.488,
+  "anomaly": 3.244,
   "anomaly_details": {
     "A_face": 8.958,
     "A_geom": 0.209,
@@ -2539,29 +2539,78 @@
     },
     "anomaly_type": "\u043d\u043e\u0440\u043c\u0430",
     "shape_error_zones": {
-      "mouth": {
-        "fan": 6.312,
-        "ddfa": 6.312
+      "brow_left": {
+        "fan": 3.879,
+        "ddfa": 3.879
       },
       "eye": {
         "fan": 3.448,
         "ddfa": 3.448
       },
-      "nose": {
-        "fan": 8.27,
-        "ddfa": 8.27
+      "jaw": {
+        "fan": 10.835,
+        "ddfa": 10.835
+      },
+      "mouth": {
+        "fan": 6.312,
+        "ddfa": 6.312
       },
       "brow_right": {
         "fan": 7.614,
         "ddfa": 7.614
       },
-      "brow_left": {
-        "fan": 3.879,
-        "ddfa": 3.879
+      "nose": {
+        "fan": 8.27,
+        "ddfa": 8.27
+      }
+    },
+    "texture_anomaly": 2.0
+  },
+  "texture": {
+    "gloss": {
+      "gloss_ratio": 0.0,
+      "max_brightness": 0.0,
+      "brightness_contrast": 0.0,
+      "is_glossy": false
+    },
+    "pores": {
+      "pore_count": 0,
+      "pore_density": 0.0,
+      "avg_pore_size": 0.0,
+      "has_pores": false
+    },
+    "color": {
+      "hsv": {
+        "h_mean": 0.0,
+        "s_mean": 0.0,
+        "v_mean": 0.0
       },
-      "jaw": {
-        "fan": 10.835,
-        "ddfa": 10.835
+      "is_abnormal": true
+    },
+    "texture": {
+      "glcm": {
+        "contrast": 0.0,
+        "dissimilarity": 0.0,
+        "homogeneity": 0.0,
+        "energy": 0.0,
+        "correlation": 0.0
+      },
+      "lbp_histogram": [
+        0.044615555555555554,
+        0.0843688888888889,
+        0.06295333333333332,
+        0.13876777777777777,
+        0.1870288888888889,
+        0.16823111111111103,
+        0.10193000000000006,
+        0.08643999999999998,
+        0.11599000000000008,
+        0.12078555555555551
+      ],
+      "statistics": {
+        "mean": 0.0,
+        "std": 0.0,
+        "entropy": 0.0
       }
     }
   }
