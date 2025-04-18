@@ -16,6 +16,7 @@ import numpy
 from core import compute_anomaly_score_v2
 from analysis import run_anomaly_analysis_and_append
 from texture_analyzer import analyze_texture
+from iface import face_embedder  # Модуль для эмбеддингов и возраста
 
 
 import sys
@@ -1241,6 +1242,32 @@ def main(args):
                 
             except Exception as e:
                 log_exception(e, "Ошибка при анализе текстуры с помощью scikit-image")
+                
+                
+                
+            # Добавляем эмбединг и возраст через InsightFace
+            insightface_data = face_embedder.get_face_data(args.img_fp)
+            if insightface_data:
+                logger.info(f"{LogEmoji.FACE} Получены эмбединги и возраст для {len(insightface_data)} лиц")
+                # Берем данные первого лица (или можно обработать все)
+                embedding = insightface_data[0].get("embedding", [])
+                age = insightface_data[0].get("age", None)
+                
+                # Добавляем в landmarks_data
+                landmarks_data["insightface"] = {
+                    "embedding": embedding,
+                    "age": age
+                }
+            else:
+                logger.warning(f"{LogEmoji.WARNING} InsightFace не обнаружил лица")
+
+
+                        
+                
+                
+                
+                
+                
             
             json_name = os.path.splitext(os.path.basename(args.img_fp))[0] + '.json'
             json_path = os.path.join('examples/results', json_name)
