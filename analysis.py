@@ -66,13 +66,6 @@ def run_anomaly_analysis_and_append(landmarks_data, img, ver_lst, tddfa_tri):
                 'roll': float(roll)
             }
             
-            # Извлекаем карту глубины и нормалей
-            depth_buffer = extract_depth_map(img, ver_lst, tddfa_tri, show_flag=False, with_bg_flag=False)
-            normal_map = extract_normal_map(img, ver_lst, tddfa_tri, show_flag=False, with_bg_flag=False)
-            
-            # Подготавливаем данные для core.py
-            depth_data = {str(i): float(depth_buffer[y, x]) for i, (x, y) in enumerate(pts_3ddfa)}
-            normal_data = {str(i): list(normal_map[y, x]) for i, (x, y) in enumerate(pts_3ddfa)}
             
             # Вызов основной функции расчёта аномалий
             anomaly = compute_anomaly_score_v2(
@@ -82,8 +75,6 @@ def run_anomaly_analysis_and_append(landmarks_data, img, ver_lst, tddfa_tri):
                 yaw=yaw,
                 pitch=pitch,
                 roll=roll,
-                depth_data=depth_data,
-                normal_data=normal_data
             )
             
             landmarks_data['anomaly'] = float(anomaly['A_face'])
@@ -157,13 +148,6 @@ def run_anomaly_analysis_and_append(landmarks_data, img, ver_lst, tddfa_tri):
                 'roll': float(roll)
             }
             
-            # Извлекаем карту глубины и нормалей
-            depth_buffer = extract_depth_map(img, ver_lst, tddfa_tri, show_flag=False, with_bg_flag=False)
-            normal_map = extract_normal_map(img, ver_lst, tddfa_tri, show_flag=False, with_bg_flag=False)
-            
-            # Подготавливаем данные для core.py
-            depth_data = {str(i): float(depth_buffer[y, x]) for i, (x, y) in enumerate(pts_3ddfa)}
-            normal_data = {str(i): list(normal_map[y, x]) for i, (x, y) in enumerate(pts_3ddfa)}
             
             # Вызов основной функции расчёта аномалий
             anomaly = compute_anomaly_score_v2(
@@ -173,8 +157,6 @@ def run_anomaly_analysis_and_append(landmarks_data, img, ver_lst, tddfa_tri):
                 yaw=yaw,
                 pitch=pitch,
                 roll=roll,
-                depth_data=depth_data,
-                normal_data=normal_data
             )
             
             landmarks_data['anomaly'] = float(anomaly['A_face'])
@@ -212,14 +194,3 @@ def classify_pose_type(yaw):
         return 'semi_left'
     else:
         return 'semi_right'
-
-# Заглушки для функций, которые должны быть перенесены из demo2.py
-def extract_depth_map(img, ver_lst, tri, **kwargs):
-    """Заглушка для примера (реализация должна быть перенесена из demo2.py)."""
-    h, w = img.shape[:2]
-    return numpy.zeros((h, w), dtype=numpy.float32)
-
-def extract_normal_map(img, ver_lst, tri, **kwargs):
-    """Заглушка для примера (реализация должна быть перенесена из demo2.py)."""
-    h, w = img.shape[:2]
-    return numpy.zeros((h, w, 3), dtype=numpy.float32)
