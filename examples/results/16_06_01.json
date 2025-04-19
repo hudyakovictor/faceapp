@@ -2508,9 +2508,60 @@
     "pitch": 8.737277297934307,
     "roll": -8.484905022898428
   },
-  "anomaly": 1.0,
+  "anomaly": 1.9705,
   "anomaly_details": {
-    "error": "compute_anomaly_score_v2() got an unexpected keyword argument 'mp_pts'",
+    "A_face": 2.802,
+    "A_geom": 0.166,
+    "shape_error_ddfa": 0.1,
+    "fan_shape_error": 5.641,
+    "symmetry_fan": 0.109,
+    "symmetry_ddfa": 0.097,
+    "yaw": -13.767971304872278,
+    "pitch": 8.737277297934307,
+    "roll": -8.484905022898428,
+    "pose_boost": 1.0,
+    "center_dev_fan": 634.57,
+    "center_dev_ddfa": 638.08,
+    "center_boost": 7.363,
+    "scale": 1.0,
+    "scale_boost": 1.0,
+    "prop_boost": 1.342,
+    "prop_ratio": 1.276,
+    "A_z": {
+      "brow_left": 12.57,
+      "brow_right": 11.95,
+      "eye": 5.93,
+      "jaw": 19.59,
+      "mouth": 5.9,
+      "nose": 2.29
+    },
+    "anomaly_type": "\u043d\u043e\u0440\u043c\u0430",
+    "shape_error_zones": {
+      "brow_left": {
+        "fan": 6.283,
+        "ddfa": 6.283
+      },
+      "jaw": {
+        "fan": 9.797,
+        "ddfa": 9.797
+      },
+      "mouth": {
+        "fan": 4.214,
+        "ddfa": 4.214
+      },
+      "nose": {
+        "fan": 2.291,
+        "ddfa": 2.291
+      },
+      "brow_right": {
+        "fan": 5.973,
+        "ddfa": 5.973
+      },
+      "eye": {
+        "fan": 4.237,
+        "ddfa": 4.237
+      }
+    },
     "texture_anomaly": 1.0
   },
   "texture": {

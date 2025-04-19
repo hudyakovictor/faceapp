@@ -6,7 +6,6 @@ from logger import logger, log_exception, log_function_call, LogEmoji, log_succe
 # Отключаем все предупреждения
 warnings.filterwarnings("ignore", category=Warning)
 
-
 # Настройка для подавления вывода
 import os
 import sys
@@ -17,7 +16,6 @@ from core import compute_anomaly_score_v2
 from analysis import run_anomaly_analysis_and_append
 from texture_analyzer import analyze_texture
 from iface import face_embedder  # Модуль для эмбеддингов и возраста
-
 
 import sys
 import argparse
@@ -122,6 +120,10 @@ with SuppressOutput():
 
 
 
+
+
+
+
 @log_function_call
 def load_image(img_path):
     """
@@ -132,6 +134,9 @@ def load_image(img_path):
     if img is None:
         raise FileNotFoundError(f"Не удалось загрузить изображение: {img_path}")
     return img
+
+
+
 
 
 
@@ -156,6 +161,15 @@ def detect_face_opencv(image):
     x, y, w, h = max(faces, key=lambda rect: rect[2]*rect[3])
     return [x, y, x + w, y + h]
 
+
+
+
+
+
+
+
+
+
 def analyze_face_texture_opencv(image_path):
     """
     Загружает изображение, определяет лицо через OpenCV,
@@ -168,9 +182,6 @@ def analyze_face_texture_opencv(image_path):
     roi = detect_face_opencv(image)
     result = analyze_texture(image, roi)
     return result
-
-
-
 
 
 
@@ -233,57 +244,6 @@ def extract_date_from_filename(filename):
 
 
 
-@log_function_call
-def analyze_date_intervals(file_dates):
-    """
-    Анализирует промежутки между датами
-    
-    Args:
-        file_dates (list): Список словарей с датами, полученных из extract_date_from_filename
-        
-    Returns:
-        dict: Словарь с метриками временных промежутков
-    """
-    if not file_dates or len(file_dates) < 2:
-        return {"intervals": [], "average_interval": 0, "max_interval": 0, "min_interval": 0}
-    
-    # Сортируем даты
-    sorted_dates = sorted(file_dates, key=lambda x: x["timestamp"])
-    
-    intervals = []
-    total_days = 0
-    
-    for i in range(1, len(sorted_dates)):
-        current_date = sorted_dates[i]["datetime"]
-        prev_date = sorted_dates[i-1]["datetime"]
-        
-        days_diff = (current_date - prev_date).days
-        
-        intervals.append({
-            "from_date": sorted_dates[i-1]["date_string"],
-            "to_date": sorted_dates[i]["date_string"],
-            "days": days_diff
-        })
-        
-        total_days += days_diff
-    
-    avg_interval = total_days / len(intervals) if intervals else 0
-    max_interval = max([i["days"] for i in intervals]) if intervals else 0
-    min_interval = min([i["days"] for i in intervals]) if intervals else 0
-    
-    return {
-        "intervals": intervals,
-        "average_interval": avg_interval,
-        "max_interval": max_interval,
-        "min_interval": min_interval,
-        "total_photos": len(file_dates),
-        "date_range": {
-            "from": sorted_dates[0]["date_string"],
-            "to": sorted_dates[-1]["date_string"],
-            "total_days": (sorted_dates[-1]["datetime"] - sorted_dates[0]["datetime"]).days
-        }
-    }
-
 
 
 
@@ -345,6 +305,11 @@ def calculate_is_anomalous(shape_error, deviations, texture_uniformity):
 
 
 
+
+
+
+
+
 @log_function_call
 def init_insightface():
     """
@@ -370,6 +335,9 @@ def init_insightface():
     except Exception as e:
         log_exception(e, "Ошибка при инициализации InsightFace")
         return None, None
+
+
+
 
 
 
@@ -424,98 +392,14 @@ def extract_insightface_features(img, face_app):
 
 
 
-@log_function_call
-def get_putin_age_by_date(date_info):
-    """
-    Получает возраст Путина на определенную дату
-    
-    Args:
-        date_info (dict): Словарь с информацией о дате
-        
-    Returns:
-        float: Возраст Путина на указанную дату
-    """
-    from datetime import datetime
-    
-    if not date_info:
-        return None
-    
-    # Дата рождения Путина - 7 октября 1952 года
-    putin_birth_date = datetime(1952, 10, 7)
-    
-    # Вычисляем возраст на дату фотографии
-    photo_date = date_info["datetime"]
-    
-    # Полных лет
-    years_diff = photo_date.year - putin_birth_date.year
-    
-    # Корректировка, если день рождения в этом году еще не наступил
-    if photo_date.month < putin_birth_date.month or \
-       (photo_date.month == putin_birth_date.month and photo_date.day < putin_birth_date.day):
-        years_diff -= 1
-    
-    # Вычисляем десятичную часть возраста (доли года)
-    if photo_date.month > putin_birth_date.month or \
-       (photo_date.month == putin_birth_date.month and photo_date.day >= putin_birth_date.day):
-        # После дня рождения в текущем году
-        days_since_birthday = (photo_date - datetime(photo_date.year, putin_birth_date.month, putin_birth_date.day)).days
-    else:
-        # До дня рождения в текущем году
-        days_since_birthday = (photo_date - datetime(photo_date.year-1, putin_birth_date.month, putin_birth_date.day)).days
-    
-    # Примерное количество дней в году (учитываем високосные годы)
-    days_in_year = 366 if (photo_date.year % 4 == 0 and photo_date.year % 100 != 0) or photo_date.year % 400 == 0 else 365
-    
-    decimal_part = days_since_birthday / days_in_year
-    
-    return years_diff + decimal_part
 
 
 
 
 
 
-@log_function_call
-def calculate_age_correlation(estimated_age, putin_age):
-    """
-    Расчет корреляции между оцененным возрастом и реальным возрастом Путина
-    
-    Args:
-        estimated_age (float): Возраст, определенный по фотографии
-        putin_age (float): Реальный возраст Путина на дату фотографии
-        
-    Returns:
-        dict: Словарь с метриками корреляции
-    """
-    if estimated_age is None or putin_age is None:
-        return {
-            "correlation": 0.0,
-            "age_difference": None,
-            "is_plausible": False
-        }
-    
-    # Вычисляем разницу в возрасте
-    age_diff = abs(estimated_age - putin_age)
-    
-    # Вычисляем корреляцию (обратно пропорциональную разнице)
-    # Чем меньше разница, тем выше корреляция
-    max_acceptable_diff = 15.0  # максимально допустимая разница
-    
-    if age_diff <= max_acceptable_diff:
-        correlation = 1.0 - (age_diff / max_acceptable_diff)
-    else:
-        correlation = 0.0
-    
-    # Определяем, является ли возраст правдоподобным
-    is_plausible = age_diff <= 10.0
-    
-    return {
-        "correlation": correlation,
-        "age_difference": age_diff,
-        "is_plausible": is_plausible,
-        "estimated_age": estimated_age,
-        "actual_age": putin_age
-    }
+
+
 
 
 
@@ -590,12 +474,7 @@ def build_structured_json(landmarks_data, embedding_data, date_data, texture_dat
         
         # Добавляем возраст
         block_6["age"] = embedding_data.get("age", None)
-        
-        # Добавляем корреляцию с возрастом Путина, если есть информация о дате
-        if date_data and embedding_data.get("age") is not None:
-            putin_age = get_putin_age_by_date(date_data)
-            age_correlation = calculate_age_correlation(embedding_data.get("age"), putin_age)
-            block_6["age_correlation"] = age_correlation
+    
     
     # Добавляем флаг is_anomalous
     is_anomalous, anomaly_reasons = calculate_is_anomalous(
@@ -643,6 +522,15 @@ def detect_faces_3ddfa(img, face_boxes):
         raise ValueError("Лицо не найдено на изображении.")
     return boxes
 
+
+
+
+
+
+
+
+
+
 @suppress_stdout
 @log_function_call
 def estimate_pose_3ddfa(param):
@@ -685,6 +573,16 @@ def estimate_pose_3ddfa(param):
         return 0.0, 0.0, 0.0
 
 
+
+
+
+
+
+
+
+
+
+
 @log_function_call
 def classify_pose_type(yaw):
     """
@@ -707,116 +605,17 @@ def classify_pose_type(yaw):
 
 
 
-# ------------------------------------------------------------------------------------------------------------------------
-
-def analyze_normal_surface(normal_map, landmarks):
-    """
-    Анализирует микроперепады по карте нормалей для выявления масок
-    
-    Args:
-        normal_map: карта нормалей
-        landmarks: ключевые точки лица
-    
-    Returns:
-        normal_zones: словарь с метриками нормалей по зонам
-    """
-    # Определяем зоны лица по индексам ключевых точек
-    zones = {
-        'jaw': list(range(0, 17)),
-        'eyebrow_right': list(range(17, 22)),
-        'eyebrow_left': list(range(22, 27)),
-        'nose': list(range(27, 36)),
-        'eye_right': list(range(36, 42)),
-        'eye_left': list(range(42, 48)),
-        'mouth': list(range(48, 68))
-    }
-    
-    normal_zones = {}
-    
-    for zone_name, indices in zones.items():
-        zone_normals = []
-        
-        for idx in indices:
-            if idx < len(landmarks):
-                x, y = int(landmarks[idx][0]), int(landmarks[idx][1])
-                
-                # Проверяем, что координаты в пределах изображения
-                if 0 <= x < normal_map.shape[1] and 0 <= y < normal_map.shape[0]:
-                    # Проверяем, что нормаль определена
-                    if numpy.any(normal_map[y, x]):
-                        zone_normals.append(normal_map[y, x])
-        
-        if zone_normals:
-            zone_normals_array = numpy.array(zone_normals)
-            
-            # Вычисляем среднюю нормаль для зоны
-            mean_normal = numpy.mean(zone_normals_array, axis=0)
-            normal_length = numpy.linalg.norm(mean_normal)
-            if normal_length > 0:
-                mean_normal = mean_normal / normal_length
-            
-            # Вычисляем угол между нормалями и средней нормалью
-            dot_products = numpy.sum(zone_normals_array * mean_normal, axis=1)
-            dot_products = numpy.clip(dot_products, -1.0, 1.0)
-            angles = numpy.arccos(dot_products)
-            
-            # Вычисляем метрики
-            normal_zones[zone_name] = {
-                'mean_normal': mean_normal.tolist(),
-                'mean_angle': float(numpy.mean(angles)),
-                'std_angle': float(numpy.std(angles)),
-                'max_angle': float(numpy.max(angles)),
-                'smoothness': float(1.0 - numpy.mean(angles) / numpy.pi)
-            }
-    
-    # Вычисляем метрики для выявления масок
-    
-    # 1. Гладкость поверхности (маски обычно более гладкие)
-    if 'jaw' in normal_zones:
-        jaw_smoothness = normal_zones['jaw']['smoothness']
-        
-        # Значение близкое к 1 указывает на очень гладкую поверхность (возможно маска)
-        normal_zones['mask_probability_smoothness'] = float(jaw_smoothness)
-    
-    # 2. Согласованность нормалей (маски имеют более согласованные нормали)
-    if 'jaw' in normal_zones and 'nose' in normal_zones:
-        jaw_std = normal_zones['jaw']['std_angle']
-        nose_std = normal_zones['nose']['std_angle']
-        
-        # Если стандартное отклонение углов на подбородке намного меньше, чем на носу,
-        # это может указывать на маску
-        if nose_std > 0:
-            normal_zones['mask_probability_consistency'] = float(1.0 - jaw_std / nose_std)
-    
-    return normal_zones
 
 
 
 
 
 
-# ------------------------------------------------------------------------------------------------------------------------
-
-@log_function_call
-
-
-
-def param2lm(param, roi_box):
-    """Преобразует параметры 3DMM в лицевые ландмарки.
-    Args:
-        param: параметры 3DMM
-        roi_box: прямоугольник области интереса [sx, sy, ex, ey]
-    Returns:
-        landmarks: массив numpy размером (68, 2) с координатами ландмарок
-    """
-    R, offset, alpha_shp, alpha_exp = _parse_param(param)
-    pts3d = R @ alpha_shp + offset
-    return similar_transform(pts3d, roi_box, size=120)
 
 
 
 
-# ------------------------------------------------------------------------------------------------------------------------
+
 
 @log_function_call
 def extract_shape_error_from_param(param):
@@ -853,6 +652,10 @@ def extract_shape_error_from_param(param):
 
 # ------------------------------------------------------------------------------------------------------------------------
 
+
+
+
+
 @log_function_call
 def get_shape_error_status(shape_error):
     """
@@ -872,6 +675,12 @@ def get_shape_error_status(shape_error):
         return 'anomaly'
     
     return 'normal'
+
+
+
+
+
+
 
 
 @log_function_call
@@ -900,7 +709,11 @@ def draw_wireframe(img, ver_lst):
 
 
 
-# ------------------------------------------------------------------------------------------------------------------------
+
+
+
+
+
 
 @log_function_call
 def get_largest_face(boxes):
@@ -1037,6 +850,21 @@ def main(args):
         
         ver_lst = tddfa.recon_vers(param_lst, roi_box_lst, dense_flag=dense_flag)
         
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
         if args.opt == '2d_sparse':
             # Скопируем изображение для отрисовки
             h, w = img.shape[:2]
@@ -1134,6 +962,15 @@ def main(args):
             
             run_anomaly_analysis_and_append(landmarks_data, img, ver_lst, tddfa.tri)
             
+            
+            
+            
+            
+            
+            
+            
+            
+            
             # Подготовка точек для расчёта аномалии
             if landmarks_data.get('3ddfa') and landmarks_data.get('fan'):
                 try:
@@ -1180,6 +1017,9 @@ def main(args):
                     log_exception(e, "Ошибка при расчете аномалии")
                     landmarks_data['anomaly'] = 1.0
                     landmarks_data['anomaly_details'] = {"error": str(e)}
+            
+            
+            
             
             
             
@@ -1244,6 +1084,12 @@ def main(args):
                 
                 
                 
+                
+                
+                
+                
+                
+                
             # Добавляем эмбединг и возраст через InsightFace
             insightface_data = face_embedder.get_face_data(args.img_fp)
             if insightface_data:
@@ -1290,11 +1136,20 @@ def main(args):
             Image.fromarray(debug_img).save(png_wfp)
             log_save(f'Сохранен прозрачный PNG в {png_wfp}')
             
+            
+            
+            
+            
+            
         elif args.opt == '2d_dense':
             logger.debug(f"{LogEmoji.PROCESSING} Режим 2d_dense")
             img = (img * 0.2).astype(numpy.uint8)
             draw_landmarks(img, ver_lst, show_flag=args.show_flag, dense_flag=dense_flag, wfp=wfp)
             log_save(f'Сохранены плотные ландмарки в {wfp}')
+            
+            
+            
+            
             
         elif args.opt == '3d':
             logger.debug(f"{LogEmoji.PROCESSING} Режим 3D рендеринга")
@@ -1352,6 +1207,10 @@ def main(args):
             except Exception as e:
                 log_exception(e, f"Ошибка при обработке 3D рендера для {args.img_fp}")
                 
+                
+                
+                
+                
         elif args.opt == 'depth':
             logger.debug(f"{LogEmoji.PROCESSING} Режим depth")
             img = (img * 0.5).astype(numpy.uint8)
@@ -1396,6 +1255,17 @@ def main(args):
         
     except Exception as e:
         log_exception(e, f"Критическая ошибка при обработке изображения {args.img_fp}")
+
+
+
+
+
+
+
+
+
+
+
 
 
 
